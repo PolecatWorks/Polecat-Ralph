@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "ralf"
+version = "0.1.0"
+description = "A cli tool to iterate on a developer design"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "ralf"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+click = "^8.1.7"
+pydantic-settings = "^2.2.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+
+[tool.poetry.scripts]
+ralf = "ralf.main:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
