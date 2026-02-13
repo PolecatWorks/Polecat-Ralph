@@ -2,33 +2,58 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from ralf.config import RalfConfig
-import ralf.tools as tools
 import os
-
-# We wrap the tools to be LangChain compatible
+import subprocess
+from typing import List, Optional
 
 @tool
-def list_files_tool(path: str = ".") -> list[str]:
+def list_files(path: str = ".") -> List[str]:
     """List all files in the given directory."""
-    return tools.list_files(path)
+    if not os.path.exists(path):
+        return []
+    files = []
+    for root, _, filenames in os.walk(path):
+        for filename in filenames:
+            files.append(os.path.relpath(os.path.join(root, filename), path))
+    return files
 
 @tool
-def read_file_tool(path: str) -> str:
+def read_file(path: str) -> str:
     """Read the content of a file."""
-    return tools.read_file(path)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return f"Error reading file {path}: {str(e)}"
 
 @tool
-def write_file_tool(path: str, content: str) -> str:
+def write_file(path: str, content: str) -> str:
     """Write content to a file."""
-    return tools.write_file(path, content)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return f"Successfully wrote to {path}"
+    except Exception as e:
+        return f"Error writing to file {path}: {str(e)}"
 
 @tool
-def run_command_tool(command: str) -> str:
+def run_command(command: str) -> str:
     """Run a shell command."""
-    return tools.run_command(command)
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=60  # Prevent infinite loops
+        )
+        return f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    except Exception as e:
+        return f"Error running command: {str(e)}"
 
 @tool
-def done_tool() -> str:
+def done() -> str:
     """Signal that the objective is met and the loop should terminate."""
     return "RALF_DONE"
 
@@ -48,7 +73,7 @@ def create_agent(instruction: str, directory: str, config: RalfConfig):
         temperature=config.aiclient.temperature
     )
 
-    agent_tools = [list_files_tool, read_file_tool, write_file_tool, run_command_tool, done_tool]
+    agent_tools = [list_files, read_file, write_file, run_command, done]
 
     abs_dir = os.path.abspath(directory)
 
@@ -60,7 +85,7 @@ Your goal is to follow these instructions:
 You have tools to list, read, and write files, and run commands.
 If you need to explore the codebase, use list_files and read_file.
 Do not hallucinate file contents. Always read them first.
-When you are satisfied that you have completed the task, call the done_tool.
+When you are satisfied that you have completed the task, call the done tool.
 If you cannot complete the task in one step, make progress and stop. You will be restarted with fresh context but the files will persist.
 """
 
