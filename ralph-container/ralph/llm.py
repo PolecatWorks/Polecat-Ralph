@@ -1,9 +1,9 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from ralf.config import RalfConfig
+from ralph.config import ralphConfig
 
-def get_chain(config: RalfConfig):
+def get_chain(config: ralphConfig):
     """
     Creates and returns a simple LangChain chain for answering questions.
     """

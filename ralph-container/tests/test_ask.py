@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch, ANY
 from click.testing import CliRunner
-from ralf.main import cli
+from ralph.cli import cli
 import os
 
 def test_ask_command():
@@ -16,13 +16,13 @@ def test_ask_command():
         mock_chain = MagicMock()
         mock_chain.invoke.return_value = "This is a mock response from the LLM."
 
-        # Patch RalfConfig to return a mock config object
-        with patch("ralf.main.RalfConfig.from_yaml_and_secrets_dir") as mock_config_cls:
+        # Patch ralphConfig to return a mock config object
+        with patch("ralph.main.ralphConfig.from_yaml_and_secrets_dir") as mock_config_cls:
             mock_config_obj = MagicMock()
             mock_config_cls.return_value = mock_config_obj
 
-            # Patch get_chain in ralf.llm
-            with patch("ralf.llm.get_chain", return_value=mock_chain) as mock_get_chain:
+            # Patch get_chain in ralph.llm
+            with patch("ralph.llm.get_chain", return_value=mock_chain) as mock_get_chain:
                 result = runner.invoke(cli, ["ask", "--config", "config.yaml", "--secrets", "secrets", "What is the capital of France?"])
 
         assert result.exit_code == 0, f"Exit code: {result.exit_code}, Output: {result.output}"
@@ -47,11 +47,11 @@ def test_ask_command_error():
         os.makedirs("secrets", exist_ok=True)
 
         # Simulate an error during chain creation or invocation
-        with patch("ralf.main.RalfConfig.from_yaml_and_secrets_dir") as mock_config_cls:
+        with patch("ralph.main.ralphConfig.from_yaml_and_secrets_dir") as mock_config_cls:
             mock_config_obj = MagicMock()
             mock_config_cls.return_value = mock_config_obj
 
-            with patch("ralf.llm.get_chain") as mock_get_chain:
+            with patch("ralph.llm.get_chain") as mock_get_chain:
                 mock_get_chain.side_effect = Exception("API Error")
                 result = runner.invoke(cli, ["ask", "--config", "config.yaml", "--secrets", "secrets", "Hello?"])
 

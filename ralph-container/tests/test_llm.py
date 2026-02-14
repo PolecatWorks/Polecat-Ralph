@@ -1,9 +1,9 @@
 from unittest.mock import patch, MagicMock
 import pytest
-from ralf.llm import get_chain
+from ralph.llm import get_chain
 
 def test_get_chain_no_api_key():
-    # Mock RalfConfig
+    # Mock ralphConfig
     mock_config = MagicMock()
     mock_config.aiclient.google_api_key = None
 
@@ -11,14 +11,14 @@ def test_get_chain_no_api_key():
         get_chain(mock_config)
 
 def test_get_chain_success():
-    # Mock RalfConfig
+    # Mock ralphConfig
     mock_config = MagicMock()
     # Configure the mock to return "dummy_key" when get_secret_value is called
     mock_config.aiclient.google_api_key.get_secret_value.return_value = "dummy_key"
     mock_config.aiclient.model = "gemini-pro"
 
     # We also need to patch ChatGoogleGenerativeAI to verify initialization
-    with patch("ralf.llm.ChatGoogleGenerativeAI") as mock_llm_class:
+    with patch("ralph.llm.ChatGoogleGenerativeAI") as mock_llm_class:
         mock_llm_instance = MagicMock()
         mock_llm_class.return_value = mock_llm_instance
 

@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "ralf"
+name = "ralph"
 version = "0.1.0"
 description = "A cli tool to iterate on a developer design"
-authors = ["Your Name <you@example.com>"]
+authors = ["Ben Greene <BenJGreene@gmail.com>"]
 readme = "README.md"
-packages = [{include = "ralf"}]
+packages = [{include = "ralph"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -13,12 +13,13 @@ pydantic-settings = "^2.2"
 langchain = "^1.2"
 langgraph = "^1.0"
 langchain-google-genai = "^4.2"
+grandalf = "^0.8"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1"
 
 [tool.poetry.scripts]
-ralf = "ralf.main:cli"
+ralph = "ralph.cli:cli"
 
 [build-system]
 requires = ["poetry-core"]

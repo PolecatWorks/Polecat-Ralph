@@ -85,9 +85,9 @@ class LangchainConfig(BaseModel):
         return v
 
 
-class RalfConfig(BaseSettings):
+class ralphConfig(BaseSettings):
     """
-    Configuration for the Ralf service
+    Configuration for the ralph service
     """
 
     logging: dict[str, Any] = Field(default_factory=dict, description="Logging configuration")
@@ -95,7 +95,7 @@ class RalfConfig(BaseSettings):
     toolbox: ToolBoxConfig = Field(default_factory=ToolBoxConfig, description="Toolbox configuration")
 
     model_config = SettingsConfigDict(
-        env_prefix="RALF_", # Changed from APP_ to RALF_
+        env_prefix="ralph_", # Changed from APP_ to ralph_
         secrets_nested_subdir=True,
         env_nested_delimiter="__",
     )

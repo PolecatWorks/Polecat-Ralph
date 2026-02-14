@@ -1,6 +1,6 @@
 import click
 from importlib.metadata import version as get_version, PackageNotFoundError
-from ralf.config import RalfConfig
+from ralph.config import ralphConfig
 from pathlib import Path
 
 
@@ -55,7 +55,7 @@ def shared_options(function):
 def version_cmd():
     """Prints the version of the application."""
     try:
-        ver = get_version("ralf")
+        ver = get_version("ralph")
         click.echo(f"{ver}")
     except PackageNotFoundError:
         click.echo("Package not found")
@@ -76,9 +76,9 @@ def ask_cmd(ctx, config, secrets, question):
         config_path = Path(config.name)
         secrets_path = Path(secrets)
 
-        configObj = RalfConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
+        configObj = ralphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
 
-        from ralf.llm import get_chain
+        from ralph.llm import get_chain
         chain = get_chain(configObj)
         response = chain.invoke({"question": question})
         click.echo(response)
@@ -87,12 +87,12 @@ def ask_cmd(ctx, config, secrets, question):
 
 @cli.command(name="loop")
 @shared_options
-@click.argument("instruction_file", type=click.Path(exists=True))
-@click.option("--directory", "-d", type=click.Path(exists=True, writable=True, dir_okay=True), help="Working directory.")
+@click.argument("workdir", type=click.Path(exists=True, writable=True, dir_okay=True, file_okay=False), required=True)
+@click.argument("instruction_file", type=click.File('r'), required=True)
 @click.option("--limit", "-l", default=1, type=int, help="Max iterations.")
-def loop_cmd(ctx, config, secrets, instruction_file, directory, limit):
+def loop_cmd(ctx, config, secrets, workdir: click.Path, instruction_file: click.File,  limit):
     """
-    Run the Ralf loop.
+    Run the ralph loop.
 
     INSTRUCTION_FILE is the path to the file containing instructions.
     """
@@ -103,12 +103,38 @@ def loop_cmd(ctx, config, secrets, instruction_file, directory, limit):
         config_path = Path(config.name)
         secrets_path = Path(secrets)
 
-        configObj = RalfConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
+        configObj = ralphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
 
-        from ralf.loop import run_loop
-        run_loop(instruction_file, directory, limit, configObj)
+        from ralph.graph import run_loop
+        run_loop(instruction_file.read(), workdir, limit, configObj)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
+
+@cli.command(name="react")
+@shared_options
+@click.argument("instruction_file", type=click.File('r'))
+@click.option("--workdir", "-w", type=click.Path(exists=True, writable=True, dir_okay=True), help="Working directory.")
+@click.option("--limit", "-l", default=1, type=int, help="Max iterations.")
+def react_cmd(ctx, config, secrets, instruction_file: click.File, workdir, limit):
+    """
+    Run the ralph react.
+
+    INSTRUCTION_FILE is the path to the file containing instructions.
+    """
+    try:
+        # config is a file object (BufferedReader) due to click.File("rb")
+        # secrets is a string due to click.Path()
+
+        config_path = Path(config.name)
+        secrets_path = Path(secrets)
+
+        configObj = ralphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
+
+        from ralph.react import run_react
+        run_react(instruction_file, workdir, limit, configObj)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+
 
 if __name__ == "__main__":
     cli()
