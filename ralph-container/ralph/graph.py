@@ -5,7 +5,7 @@ from pathlib import Path
 # We will import create_agent later when it is implemented
 # from ralph.agent import create_agent
 
-from ralph.config import ralphConfig
+from ralph.config import RalphConfig
 
 def ensure_prompts_files(directory: str):
     """
@@ -37,7 +37,7 @@ def ensure_prompts_files(directory: str):
         click.echo(f"Error copying prompts files: {e}", err=True)
 
 
-def run_loop(instruction: str, directory: str, limit: int, config: ralphConfig):
+def run_loop(instruction: str, directory: str, limit: int, config: RalphConfig):
     """
     Runs the ralph loop.
 
@@ -87,7 +87,7 @@ def run_loop(instruction: str, directory: str, limit: int, config: ralphConfig):
             # Keep track of message count before invoke
             prev_msg_count = len(messages)
 
-            result = agent.invoke({"messages": messages})
+            result = agent.invoke({"messages": messages}, context = WorkContext(working_directory=abs_dir))
 
             # Update our local messages state with the result from the agent.
             # The result from invoke(state) is the final state.

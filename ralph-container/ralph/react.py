@@ -3,9 +3,9 @@ import os
 # We will import create_agent later when it is implemented
 # from ralph.agent import create_agent
 
-from ralph.config import ralphConfig
+from ralph.config import RalphConfig
 
-def run_react(instruction: str, directory: Path, config: ralphConfig):
+def run_react(instruction: str, directory: Path, config: RalphConfig):
     """
     Runs the ralph react.
 

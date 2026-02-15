@@ -1,16 +1,20 @@
-from langchain_core.tools import tool
+from langchain.tools import tool, ToolRuntime
 from langgraph.prebuilt import create_react_agent as create_react_agent_original
 from langchain_google_genai import ChatGoogleGenerativeAI
-from ralph.config import ralphConfig
+from langchain_ollama import ChatOllama
+from ralph.config import RalphConfig
 import os
 import subprocess
 from typing import List, Optional
 import click
 
 
+
+
+
 @tool
-def list_files(path: str = ".") -> List[str]:
-    """List all files in the given directory."""
+def list_files(path: str = ".", tool_runtime: ToolRuntime[WorkContext]) -> List[str]:
+    """List file in the working directory."""
     if not os.path.exists(path):
         return []
     files = []
@@ -18,6 +22,7 @@ def list_files(path: str = ".") -> List[str]:
         for filename in filenames:
             files.append(os.path.relpath(os.path.join(root, filename), path))
     return files
+
 
 @tool
 def read_file(path: str) -> str:
@@ -27,6 +32,7 @@ def read_file(path: str) -> str:
             return f.read()
     except Exception as e:
         return f"Error reading file {path}: {str(e)}"
+
 
 @tool
 def write_file(path: str, content: str) -> str:
@@ -40,6 +46,7 @@ def write_file(path: str, content: str) -> str:
         return f"Successfully wrote to {path}"
     except Exception as e:
         return f"Error writing to file {path}: {str(e)}"
+
 
 @tool
 def run_command(command: str) -> str:
@@ -56,26 +63,68 @@ def run_command(command: str) -> str:
     except Exception as e:
         return f"Error running command: {str(e)}"
 
+
 @tool
 def done() -> str:
     """Signal that the objective is met and the loop should terminate."""
     return "ralph_DONE"
 
-def _initialize_agent_context(instruction: str, directory: str, config: ralphConfig):
+
+
+def llm_model(config: LangchainConfig):
+
+    match config.model_provider:
+        case "google_genai":
+            from langchain_google_genai import ChatGoogleGenerativeAI
+
+            model = ChatGoogleGenerativeAI(
+                model=config.model,
+                google_api_key=config.google_api_key.get_secret_value(),
+            )
+        case "azure_openai":
+            from langchain_openai import AzureChatOpenAI
+
+            model = AzureChatOpenAI(
+                model=config.model,
+                azure_endpoint=str(config.azure_endpoint),
+                api_version=config.azure_api_version,
+                api_key=config.azure_api_key.get_secret_value(),
+            )
+        case "ollama":
+            from langchain_ollama import ChatOllama
+
+            model = ChatOllama(
+                model=config.model,
+                base_url=config.ollama_base_url,
+            )
+        case _:
+            raise ValueError(f"Unsupported model provider: {config.model_provider}")
+
+    return model
+
+
+def _initialize_agent_context(instruction: str, directory: str, config: RalphConfig):
     """
     Initializes the common context for agents: LLM, tools, and system prompt.
     """
-    if not config.aiclient.google_api_key:
-        raise ValueError("GOOGLE_API_KEY environment variable is not set.")
-
     # Use default model if none specified
     model_name = config.aiclient.model or "gemini-pro"
 
-    llm = ChatGoogleGenerativeAI(
-        model=model_name,
-        google_api_key=config.aiclient.google_api_key.get_secret_value(),
-        temperature=config.aiclient.temperature
-    )
+    if config.aiclient.model_provider == "ollama":
+        llm = ChatOllama(
+            model=model_name,
+            base_url=config.aiclient.ollama_base_url,
+            temperature=config.aiclient.temperature
+        )
+    else:
+        if not config.aiclient.google_api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable is not set.")
+
+        llm = ChatGoogleGenerativeAI(
+            model=model_name,
+            google_api_key=config.aiclient.google_api_key.get_secret_value(),
+            temperature=config.aiclient.temperature
+        )
 
     agent_tools = [list_files, read_file, write_file, run_command, done]
 
@@ -116,7 +165,8 @@ If you cannot complete the task in one step, make progress and stop. You will be
 """
     return llm, agent_tools, system_prompt
 
-def create_react_agent(instruction: str, directory: str, config: ralphConfig):
+
+def create_react_agent(instruction: str, directory: str, config: RalphConfig):
     """
     Creates a LangGraph agent with access to tools.
     """
@@ -127,7 +177,7 @@ def create_react_agent(instruction: str, directory: str, config: ralphConfig):
     return graph
 
 
-def create_single_step_agent(instruction: str, directory: str, config: ralphConfig):
+def create_single_step_agent(instruction: str, directory: str, config: RalphConfig):
     """
     Creates a single-step agent that executes one loop of reasoning and action.
     It uses a StateGraph to define a linear workflow: Agent -> Tools -> END.

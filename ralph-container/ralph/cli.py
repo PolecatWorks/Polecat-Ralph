@@ -1,6 +1,6 @@
 import click
 from importlib.metadata import version as get_version, PackageNotFoundError
-from ralph.config import ralphConfig
+from ralph.config import RalphConfig
 from pathlib import Path
 
 
@@ -76,7 +76,7 @@ def ask_cmd(ctx, config, secrets, question):
         config_path = Path(config.name)
         secrets_path = Path(secrets)
 
-        configObj = ralphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
+        configObj = RalphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
 
         from ralph.llm import get_chain
         chain = get_chain(configObj)
@@ -103,7 +103,7 @@ def loop_cmd(ctx, config, secrets, workdir: click.Path, instruction_file: click.
         config_path = Path(config.name)
         secrets_path = Path(secrets)
 
-        configObj = ralphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
+        configObj = RalphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
 
         from ralph.graph import run_loop
         run_loop(instruction_file.read(), workdir, limit, configObj)
@@ -128,7 +128,7 @@ def react_cmd(ctx, config, secrets, instruction_file: click.File, workdir, limit
         config_path = Path(config.name)
         secrets_path = Path(secrets)
 
-        configObj = ralphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
+        configObj = RalphConfig.from_yaml_and_secrets_dir(config_path, secrets_path)
 
         from ralph.react import run_react
         run_react(instruction_file, workdir, limit, configObj)
