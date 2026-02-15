@@ -6,6 +6,8 @@ from ralph.config import RalphConfig
 from ralph.state import AgentState
 import os
 import subprocess
+import json
+import uuid
 from typing import List, Optional
 
 def _get_workdir(config: RunnableConfig) -> str:
@@ -79,6 +81,50 @@ def write_file(path: str, content: str, config: RunnableConfig) -> str:
         return f"Error writing to file {path}: {str(e)}"
 
 @tool
+def update_prd(story_title: str, config: RunnableConfig, story_id: Optional[str] = None, notes: Optional[str] = None) -> str:
+    """
+    Add a new User Story to the PRD (prd.json).
+    Use this tool to track requirements and progress.
+    """
+    try:
+        workdir = _get_workdir(config)
+        prd_path = _resolve_path("prd.json", workdir)
+
+        # Load existing PRD or create new structure
+        if os.path.exists(prd_path):
+            with open(prd_path, "r", encoding="utf-8") as f:
+                try:
+                    prd_data = json.load(f)
+                except json.JSONDecodeError:
+                    prd_data = {"branchName": "main", "userStories": []}
+        else:
+            prd_data = {"branchName": "main", "userStories": []}
+
+        # Ensure userStories list exists
+        if "userStories" not in prd_data:
+            prd_data["userStories"] = []
+
+        # Create new story
+        new_story = {
+            "storyId": story_id or str(uuid.uuid4())[:8],
+            "storyTitle": story_title,
+            "passes": False # Default to False for new stories
+        }
+        if notes:
+            new_story["notes"] = notes
+
+        # Append and save
+        prd_data["userStories"].append(new_story)
+
+        with open(prd_path, "w", encoding="utf-8") as f:
+            json.dump(prd_data, f, indent=2)
+
+        return f"Successfully added story '{story_title}' to prd.json"
+
+    except Exception as e:
+        return f"Error updating PRD: {str(e)}"
+
+@tool
 def run_command(command: str, config: RunnableConfig) -> str:
     """Run a shell command."""
     try:
@@ -116,7 +162,7 @@ def _initialize_agent_context(instruction: str, directory: str, config: RalphCon
         temperature=config.aiclient.temperature
     )
 
-    agent_tools = [list_files, read_file, write_file, run_command, done]
+    agent_tools = [list_files, read_file, write_file, run_command, done, update_prd]
 
     abs_dir = os.path.abspath(directory)
 
