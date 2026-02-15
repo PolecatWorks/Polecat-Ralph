@@ -16,12 +16,7 @@ def ensure_prompts_files(directory: str):
 
     # If the directory already exists, we assume it's initialized.
     # We might want a force-update flag later, but for now, we respect existing user modifications.
-    if workdir_prompts.exists():
-        click.echo(f"prompts directory found at {workdir_prompts}")
-        return
-
     # Find the package source directory
-    # unique to this file location: ralph/graph.py -> ralph/prompts
     package_dir = Path(__file__).parent
     source_prompts = package_dir / "prompts"
 
@@ -29,12 +24,32 @@ def ensure_prompts_files(directory: str):
         click.echo(f"Warning: Source prompts directory not found at {source_prompts}", err=True)
         return
 
-    click.echo(f"Initializing prompts at {workdir_prompts}...")
-    try:
-        shutil.copytree(source_prompts, workdir_prompts)
-        click.echo("Initialization complete.")
-    except Exception as e:
-        click.echo(f"Error copying prompts files: {e}", err=True)
+    # If the directory doesn't exist, copy the whole thing
+    if not workdir_prompts.exists():
+        click.echo(f"Initializing prompts at {workdir_prompts}...")
+        try:
+            shutil.copytree(source_prompts, workdir_prompts)
+            click.echo("Initialization complete.")
+        except Exception as e:
+            click.echo(f"Error copying prompts files: {e}", err=True)
+        return
+
+    # If directory exists, check specifically for agent/prompt.md
+    workdir_agent_prompt = workdir_prompts / "agent" / "prompt.md"
+    if not workdir_agent_prompt.exists():
+        click.echo(f"Agent prompt not found at {workdir_agent_prompt}. Copying from source...")
+        source_agent_prompt = source_prompts / "agent" / "prompt.md"
+        if source_agent_prompt.exists():
+            try:
+                os.makedirs(workdir_agent_prompt.parent, exist_ok=True)
+                shutil.copy2(source_agent_prompt, workdir_agent_prompt)
+                click.echo("Agent prompt copied.")
+            except Exception as e:
+                click.echo(f"Error copying agent prompt: {e}", err=True)
+        else:
+             click.echo(f"Warning: Source agent prompt not found at {source_agent_prompt}", err=True)
+    else:
+        click.echo(f"prompts directory found at {workdir_prompts}")
 
 
 def run_loop(instruction_file: str, directory: str, limit: int, config: RalphConfig):

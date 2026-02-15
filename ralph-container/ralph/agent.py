@@ -120,7 +120,19 @@ def _initialize_agent_context(instruction: str, directory: str, config: RalphCon
 
     abs_dir = os.path.abspath(directory)
 
-    system_prompt = f"""You are an autonomous coding agent called Ralph.
+    # Read prompt from file
+    prompt_file = os.path.join(abs_dir, "prompts", "agent", "prompt.md")
+    base_prompt = ""
+    if os.path.exists(prompt_file):
+        try:
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                base_prompt = f.read()
+        except Exception as e:
+            # This should ideally be logged or handled, but for now we fallback or proceed with empty
+             print(f"Warning: Could not read prompt file at {prompt_file}: {e}")
+
+    system_prompt = f"""{base_prompt}
+
 You are working in the directory: {abs_dir}
 Your goal is to follow these instructions:
 {instruction}
