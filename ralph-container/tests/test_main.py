@@ -1,6 +1,6 @@
 from unittest.mock import patch
 from click.testing import CliRunner
-from ralph.main import cli
+from ralph.cli import cli
 from importlib.metadata import PackageNotFoundError
 
 def test_version():

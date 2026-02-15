@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch, ANY
 from click.testing import CliRunner
-from ralph.main import cli
+from ralph.cli import cli
 import os
 
 def test_ask_command():

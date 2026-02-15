@@ -1,5 +1,10 @@
-BASE_DIR:=../
+BASE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
 cli_apps:=ralph
+
+clean:
+	rm -rf $(foreach app,$(cli_apps),$(app)-venv)
+
 
 $(foreach app,$(cli_apps),$(app)-venv/bin/activate):%-venv/bin/activate:%-container/pyproject.toml
 	@echo Creating venv for $*

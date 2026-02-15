@@ -24,3 +24,11 @@ poetry run ralph version
 ```
 
 This will output the current version of the application as defined in `pyproject.toml`.
+
+### Development
+
+To run the application in development mode:
+
+```bash
+ralph loop --secrets tests/test_data/secrets --config tests/test_data/config.yaml tests/workdirs/workdir0 tests/instructions0.md
+```

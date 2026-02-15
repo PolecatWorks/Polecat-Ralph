@@ -15,10 +15,10 @@ langgraph = "^1.0"
 langchain-google-genai = "^4.2"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.1"
+pytest = "^9.0"
 
 [tool.poetry.scripts]
-ralph = "ralph.main:cli"
+ralph = "ralph.cli:cli"
 
 [build-system]
 requires = ["poetry-core"]
