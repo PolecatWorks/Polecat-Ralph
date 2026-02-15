@@ -2,7 +2,7 @@
 name = "ralph"
 version = "0.1.0"
 description = "A cli tool to iterate on a developer design"
-authors = ["Your Name <you@example.com>"]
+authors =  ["Ben Greene <BenJGreene@gmail.com>"]
 readme = "README.md"
 packages = [{include = "ralph"}]
 

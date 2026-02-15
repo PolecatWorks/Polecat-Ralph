@@ -103,10 +103,7 @@ def done(config: RunnableConfig) -> str:
     _get_workdir(config)
     return "RALPH_DONE"
 
-def create_agent(instruction: str, directory: str, config: RalphConfig):
-    """
-    Creates a LangGraph agent with access to tools.
-    """
+def _initialize_agent_context(instruction: str, directory: str, config: RalphConfig):
     if not config.aiclient.google_api_key:
         raise ValueError("GOOGLE_API_KEY environment variable is not set.")
 
@@ -134,7 +131,58 @@ Do not hallucinate file contents. Always read them first.
 When you are satisfied that you have completed the task, call the done tool.
 If you cannot complete the task in one step, make progress and stop. You will be restarted with fresh context but the files will persist.
 """
+    return llm, agent_tools, system_prompt
+
+
+def create_agent(instruction: str, directory: str, config: RalphConfig):
+    """
+    Creates a LangGraph agent with access to tools.
+    """
+    llm, agent_tools, system_prompt = _initialize_agent_context(instruction, directory, config)
 
     # create_react_agent returns a CompiledGraph
     graph = create_react_agent(llm, tools=agent_tools, prompt=system_prompt, state_schema=AgentState)
     return graph
+
+
+def create_single_step_agent(instruction: str, directory: str, config: RalphConfig):
+    """
+    Creates a single-step agent that executes one loop of reasoning and action.
+    It uses a StateGraph to define a linear workflow: Agent -> Tools -> END.
+    """
+    from langgraph.graph import StateGraph, START, END
+    from langgraph.prebuilt import ToolNode
+    from ralph.state import AgentState
+
+    llm, agent_tools, system_prompt = _initialize_agent_context(instruction, directory, config)
+
+    # Bind tools to the LLM
+    llm_with_tools = llm.bind_tools(agent_tools)
+
+    def agent_node(state: AgentState):
+        messages = [("system", system_prompt)] + state["messages"]
+        response = llm_with_tools.invoke(messages)
+        return {"messages": [response]}
+
+    tool_node = ToolNode(agent_tools)
+
+    workflow = StateGraph(AgentState)
+    workflow.add_node("agent", agent_node)
+    workflow.add_node("tools", tool_node)
+
+    workflow.add_edge(START, "agent")
+
+    def should_continue(state: AgentState):
+        messages = state["messages"]
+        last_message = messages[-1]
+        if last_message.tool_calls:
+            return "tools"
+        return END
+
+    workflow.add_conditional_edges("agent", should_continue, ["tools", END])
+    workflow.add_edge("tools", END)
+
+    compiled_graph = workflow.compile()
+    # click.echo(compiled_graph.get_graph().draw_ascii())
+
+    return compiled_graph
