@@ -2,16 +2,16 @@
 
 Create a cli tool to iterate on a developer design
 
-## Ralf
+## Ralph
 
-`ralf` is a Python CLI tool created to iterate on a developer design. It is located in the `ralf-container` directory.
+`ralph` is a Python CLI tool created to iterate on a developer design. It is located in the `ralph-container` directory.
 
 ### Installation
 
-To install `ralf`, navigate to the `ralf-container` directory and use poetry:
+To install `ralph`, navigate to the `ralph-container` directory and use poetry:
 
 ```bash
-cd ralf-container
+cd ralph-container
 poetry install
 ```
 
@@ -20,7 +20,7 @@ poetry install
 To verify the installation and see the version:
 
 ```bash
-poetry run ralf version
+poetry run ralph version
 ```
 
 This will output the current version of the application as defined in `pyproject.toml`.
