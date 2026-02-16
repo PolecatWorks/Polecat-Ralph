@@ -32,9 +32,8 @@ def ensure_prompts_files(directory: str):
             click.echo("Initialization complete.")
         except Exception as e:
             click.echo(f"Error copying prompts files: {e}", err=True)
-        return
 
-    # If directory exists, check specifically for agent/prompt.md
+    # Check specifically for agent/prompt.md
     workdir_agent_prompt = workdir_prompts / "agent" / "prompt.md"
     if not workdir_agent_prompt.exists():
         click.echo(f"Agent prompt not found at {workdir_agent_prompt}. Copying from source...")
@@ -50,6 +49,14 @@ def ensure_prompts_files(directory: str):
              click.echo(f"Warning: Source agent prompt not found at {source_agent_prompt}", err=True)
     else:
         click.echo(f"prompts directory found at {workdir_prompts}")
+
+    # Ensure prompts/instructions exists
+    workdir_instructions = workdir_prompts / "instructions"
+    if not workdir_instructions.exists():
+        try:
+            os.makedirs(workdir_instructions, exist_ok=True)
+        except Exception as e:
+            click.echo(f"Error creating instructions directory: {e}", err=True)
 
 
 def run_loop(instruction_file: str, directory: str, limit: int, config: RalphConfig):
@@ -82,10 +89,23 @@ def run_loop(instruction_file: str, directory: str, limit: int, config: RalphCon
     # Ensure environment is set up
     ensure_prompts_files(directory)
 
+    abs_dir = os.path.abspath(directory)
+
+    # Copy instruction file to workdir prompts/instructions
+    # This creates a working copy that the agent can update
+    instr_filename = os.path.basename(instruction_file)
+    target_instr_path = os.path.join(abs_dir, "prompts", "instructions", instr_filename)
+
+    try:
+        shutil.copy2(instruction_file, target_instr_path)
+        click.echo(f"Instruction copied to {target_instr_path}")
+    except Exception as e:
+        click.echo(f"Error copying instruction file: {e}", err=True)
+        return
+
     # Change working directory to the target workspace
     # This ensures that all agent file operations (which default to relative paths)
     # happen within the workspace.
-    abs_dir = os.path.abspath(directory)
     try:
          os.chdir(abs_dir)
          click.echo(f"Changed working directory to {abs_dir}")
@@ -95,6 +115,7 @@ def run_loop(instruction_file: str, directory: str, limit: int, config: RalphCon
 
     # Create the agent once
     # We pass abs_dir, but since we are IN abs_dir, tools working on "." will work fine.
+    # We pass the instruction string as a fallback, but the loop will prioritize the file.
     agent = create_single_step_agent(instruction, abs_dir, config)
 
     # Initialize messages with the user's request
@@ -115,7 +136,11 @@ def run_loop(instruction_file: str, directory: str, limit: int, config: RalphCon
             # Keep track of message count before invoke
             prev_msg_count = len(messages)
 
-            result = agent.invoke({"messages": messages}, {"configurable": {"workdir": abs_dir}})
+            # Pass the instruction_path in the config so the agent reads the latest version each time
+            result = agent.invoke(
+                {"messages": messages},
+                {"configurable": {"workdir": abs_dir, "instruction_path": target_instr_path}}
+            )
 
             # Convert result to AgentState for validation and easier access
             state = AgentState(**result)

@@ -62,26 +62,19 @@ def test_initialize_agent_context_reads_prompt(tmp_path, mock_config):
     prompt_content = "Run, Ralph, Run!"
     prompt_file.write_text(prompt_content, encoding="utf-8")
 
-    instruction = "Do the thing"
-
     # We need to mock ChatGoogleGenerativeAI to avoid making network calls
     with patch("ralph.agent.ChatGoogleGenerativeAI") as MockLLM:
-        llm, tools, system_prompt = _initialize_agent_context(instruction, str(workdir), mock_config)
+        llm, tools, base_prompt = _initialize_agent_context(str(workdir), mock_config)
 
-        assert prompt_content in system_prompt
-        assert str(workdir) in system_prompt
-        assert instruction in system_prompt
+        assert prompt_content == base_prompt
 
 def test_initialize_agent_context_fallback(tmp_path, mock_config):
     """Test behavior if prompt file is missing (should not crash)."""
     workdir = tmp_path
     # No prompts file created
 
-    instruction = "Do the thing"
-
     with patch("ralph.agent.ChatGoogleGenerativeAI") as MockLLM:
-         llm, tools, system_prompt = _initialize_agent_context(instruction, str(workdir), mock_config)
+         llm, tools, base_prompt = _initialize_agent_context(str(workdir), mock_config)
 
-         # Just verify it constructed a prompt with basic info
-         assert str(workdir) in system_prompt
-         assert instruction in system_prompt
+         # Should be empty string if file missing
+         assert base_prompt == ""
