@@ -8,7 +8,8 @@ import os
 import subprocess
 import json
 import uuid
-from typing import List, Optional
+import click
+from typing import List, Optional, Any
 
 def _get_workdir(config: RunnableConfig) -> str:
     """Extract and validate the working directory from the runtime config."""
@@ -149,6 +150,40 @@ def done(config: RunnableConfig) -> str:
     _get_workdir(config)
     return "RALPH_DONE"
 
+@tool
+def ask_user(question: str, config: RunnableConfig) -> str:
+    """
+    Ask the user a question to get clarification or input.
+    The execution will pause until the user provides an answer.
+    """
+    try:
+        # We use click.echo to ensure it prints to stdout/stderr visible to user
+        click.echo(f"\n[AGENT ASKS]: {question}")
+        # click.prompt pauses and waits for input
+        answer = click.prompt("Your answer")
+        return answer
+    except Exception as e:
+        return f"Error asking user: {str(e)}"
+
+@tool
+def update_instruction(new_instruction: str, config: RunnableConfig) -> str:
+    """
+    Update the current instruction file with new details or clarifications.
+    This overwrites the existing instruction file.
+    """
+    try:
+        instruction_path = config.get("configurable", {}).get("instruction_path")
+        if not instruction_path:
+             return "Error: No instruction file path found in configuration."
+
+        # We assume instruction_path is trusted as it comes from the system loop
+        with open(instruction_path, "w", encoding="utf-8") as f:
+            f.write(new_instruction)
+
+        return "Successfully updated instruction file."
+    except Exception as e:
+        return f"Error updating instruction: {str(e)}"
+
 
 def llm_model(config: LangchainConfig):
 
@@ -182,17 +217,13 @@ def llm_model(config: LangchainConfig):
     return model
 
 
-
-
-
-
-def _initialize_agent_context(instruction: str, directory: str, config: RalphConfig):
+def _initialize_agent_context(directory: str, config: RalphConfig):
     if config.aiclient.model_provider == "google_genai" and not config.aiclient.google_api_key:
         raise ValueError("GOOGLE_API_KEY environment variable is not set.")
 
     llm = llm_model(config.aiclient)
 
-    agent_tools = [list_files, read_file, write_file, run_command, done, update_prd]
+    agent_tools = [list_files, read_file, write_file, run_command, done, update_prd, ask_user, update_instruction]
 
     abs_dir = os.path.abspath(directory)
 
@@ -207,6 +238,17 @@ def _initialize_agent_context(instruction: str, directory: str, config: RalphCon
             # This should ideally be logged or handled, but for now we fallback or proceed with empty
              print(f"Warning: Could not read prompt file at {prompt_file}: {e}")
 
+    return llm, agent_tools, base_prompt
+
+
+def create_agent(instruction: str, directory: str, config: RalphConfig):
+    """
+    Creates a LangGraph agent with access to tools.
+    """
+    llm, agent_tools, base_prompt = _initialize_agent_context(directory, config)
+
+    # Reconstruct the system prompt for static usage
+    abs_dir = os.path.abspath(directory)
     system_prompt = f"""{base_prompt}
 
 You are working in the directory: {abs_dir}
@@ -219,14 +261,6 @@ Do not hallucinate file contents. Always read them first.
 When you are satisfied that you have completed the task, call the done tool.
 If you cannot complete the task in one step, make progress and stop. You will be restarted with fresh context but the files will persist.
 """
-    return llm, agent_tools, system_prompt
-
-
-def create_agent(instruction: str, directory: str, config: RalphConfig):
-    """
-    Creates a LangGraph agent with access to tools.
-    """
-    llm, agent_tools, system_prompt = _initialize_agent_context(instruction, directory, config)
 
     # create_react_agent returns a CompiledGraph
     graph = create_react_agent(llm, tools=agent_tools, prompt=system_prompt, state_schema=AgentState)
@@ -242,12 +276,36 @@ def create_single_step_agent(instruction: str, directory: str, config: RalphConf
     from langgraph.prebuilt import ToolNode
     from ralph.state import AgentState
 
-    llm, agent_tools, system_prompt = _initialize_agent_context(instruction, directory, config)
+    llm, agent_tools, base_prompt = _initialize_agent_context(directory, config)
+    abs_dir = os.path.abspath(directory)
 
     # Bind tools to the LLM
     llm_with_tools = llm.bind_tools(agent_tools)
 
     def agent_node(state: AgentState, config: RunnableConfig):
+        # Determine instruction: either from config (dynamic) or argument (static fallback)
+        current_instruction = instruction
+        instruction_path = config.get("configurable", {}).get("instruction_path")
+        if instruction_path:
+            try:
+                with open(instruction_path, "r", encoding="utf-8") as f:
+                    current_instruction = f.read()
+            except Exception as e:
+                # Log error or fallback?
+                pass
+
+        system_prompt = f"""{base_prompt}
+
+You are working in the directory: {abs_dir}
+Your goal is to follow these instructions:
+{current_instruction}
+
+You have tools to list, read, and write files, and run commands.
+If you need to explore the codebase, use list_files and read_file.
+Do not hallucinate file contents. Always read them first.
+When you are satisfied that you have completed the task, call the done tool.
+If you cannot complete the task in one step, make progress and stop. You will be restarted with fresh context but the files will persist.
+"""
         messages = [("system", system_prompt)] + state.messages
         response = llm_with_tools.invoke(messages, config)
         return {"messages": [response]}

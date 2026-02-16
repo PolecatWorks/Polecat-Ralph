@@ -2,7 +2,8 @@ import os
 import tempfile
 import shutil
 import pytest
-from ralph.agent import list_files, read_file, write_file, run_command, done
+from unittest.mock import patch
+from ralph.agent import list_files, read_file, write_file, run_command, done, ask_user, update_instruction
 
 def test_file_tools():
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -86,3 +87,28 @@ def test_done():
         config = {"configurable": {"workdir": tmpdir}}
         result = done.invoke({}, config=config)
         assert result == "RALPH_DONE"
+
+def test_ask_user():
+    # Mock click.prompt to return "Mock Answer"
+    with patch("click.prompt", return_value="Mock Answer") as mock_prompt:
+        # Mock click.echo to ignore output
+        with patch("click.echo"):
+             result = ask_user.invoke({"question": "Why?"}, config={})
+             assert result == "Mock Answer"
+             mock_prompt.assert_called_once()
+
+def test_update_instruction():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = os.path.realpath(tmpdir)
+        instr_file = os.path.join(tmpdir, "instruction.txt")
+        with open(instr_file, "w") as f:
+            f.write("Old Instruction")
+
+        config = {"configurable": {"instruction_path": instr_file}}
+
+        result = update_instruction.invoke({"new_instruction": "New Instruction"}, config=config)
+        assert "Successfully updated" in result
+
+        with open(instr_file, "r") as f:
+            content = f.read()
+        assert content == "New Instruction"
