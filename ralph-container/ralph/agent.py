@@ -17,6 +17,7 @@ import json
 import uuid
 import click
 from typing import List, Optional, Any
+import re
 
 def _get_workdir(config: RunnableConfig) -> str:
     """
@@ -434,6 +435,56 @@ If you cannot complete the task in one step, make progress and stop. You will be
 """
         messages = [("system", system_prompt)] + state.messages
         response = llm_with_tools.invoke(messages, config)
+
+        # Fallback for models that output JSON instead of tool_calls
+        if not response.tool_calls and response.content:
+            click.echo("[DEBUG] checking content type")
+            content = response.content.strip()
+            tool_data = None
+
+            # 1. Try Code Block (flexible)
+            # Matches ```json { ... } ``` or ``` { ... } ```
+            # \s* includes newlines
+            json_match = re.search(r"```(?:\w+)?\s*(\{.*?\})\s*```", response.content, re.DOTALL)
+            if json_match:
+                click.echo("[DEBUG] Found JSON code block")
+                try:
+                    tool_data = json.loads(json_match.group(1))
+                except Exception as e:
+                    click.echo(f"[DEBUG] JSON parse error (code block): {e}")
+
+            # 2. If no code block or parse failed, try finding a JSON object that looks like a tool call
+            if not tool_data:
+                 # Look for { ... "name": ... } within the content
+                 try:
+                     start = content.find("{")
+                     end = content.rfind("}")
+                     if start != -1 and end != -1 and end > start:
+                         possible_json = content[start:end+1]
+                         try:
+                             tool_data = json.loads(possible_json)
+                         except:
+                             pass
+                 except Exception:
+                     pass
+
+            if tool_data:
+                if "name" in tool_data and "arguments" in tool_data:
+                    click.echo(f"[DEBUG] Parsed fallback tool call: {tool_data['name']}")
+                    tool_call = {
+                        "name": tool_data["name"],
+                        "args": tool_data["arguments"],
+                        "id": str(uuid.uuid4()),
+                        "type": "tool_call"
+                    }
+                    response.tool_calls = [tool_call]
+                else:
+                     click.echo(f"[DEBUG] JSON Parsed but missing name/arguments: {tool_data.keys()}")
+            else:
+                 click.echo("[DEBUG] No JSON found in content or failed to parse")
+
+        click.echo(f"\n[DEBUG] Agent response content: {response.content}")
+        click.echo(f"[DEBUG] Agent tool calls: {response.tool_calls}\n")
         return {"messages": [response]}
 
     tool_node = ToolNode(agent_tools)
