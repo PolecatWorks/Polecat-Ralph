@@ -1,2 +1,2 @@
-Review each chapter and then expand the chapter and convert it to markdown with 80 char width.
-after writing the new markdown file please remove the old txt file
+Read all the book chapters and then write a short summary of the book as an intro followed by the names of the book chapters in order.
+Create a title for the book and have it as a header before the summary.
